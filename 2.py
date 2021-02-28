@@ -3,11 +3,31 @@ from urllib.parse import urlparse
 import pathlib
 import sys
 import mimetypes
+from datetime import datetime
 
 FILEDIR = pathlib.Path('.', '2files')
+DEFAULT_FILE = 'index.html'
+SERVER = 'Python Server'
+ALWAYS_CLOSE = False
+PORT = 9091
+
+def httpdate(dt):
+    """Return a string representation of a date according to RFC 1123
+    (HTTP/1.1).
+
+    The supplied date must be in UTC.
+
+    """
+    weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
+    month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+             "Oct", "Nov", "Dec"][dt.month - 1]
+    return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, dt.day, month,
+        dt.year, dt.hour, dt.minute, dt.second)
 
 def parse_http(data):
     text = data.decode('utf-8', 'ignore').splitlines()
+
+    print(f'Parsing: {text[0]}')
 
     method, full_path, version = text[0].split()
 
@@ -36,13 +56,20 @@ def parse_http(data):
 
 def build_http_reply(reply):
     text = []
-    text.append(f'HTTP/1.1 {reply["code"]} {reply["code_desc"]}'.encode())
-    for k, v in reply.get('headers', []):
+    head = f'HTTP/1.1 {reply["code"]} {reply["code_desc"]}'
+    print(f'Sending: {head}')
+    text.append(head.encode())
+    headers = reply.get('headers', {})
+    headers |= {
+        'Date': httpdate(datetime.now()),
+        'Server': SERVER,
+        'Content-Length': len(reply['data'])
+    }
+    for k, v in headers.items():
         text.append(f'{k}: {v}'.encode())
     text.append(''.encode())
     text.append(reply.get('data', ''))
     return b'\n'.join(text)
-
 
 def error_reply(code, desc='Very bad...'):
     return {
@@ -52,21 +79,34 @@ def error_reply(code, desc='Very bad...'):
         'data': desc.encode()
     }
 
-def file_reply(path):
+def file_reply(path, accept):
     if path.exists():
+        try:
+            FILEDIR.joinpath(path).resolve().relative_to(FILEDIR.resolve())
+        except ValueError:
+            return error_reply(404, desc='Not found')
         if path.is_dir():
-            path = FILEDIR / 'kek.html'
+            path = path / DEFAULT_FILE
+            if not path.exists():
+                return error_reply(404, desc='Not found')
         mime = mimetypes.guess_type(path)[0]
-        reply = {
-            'type': 'reply',
-            'code': '200',
-            'code_desc': 'OK',
-            'headers': [
-                ('Content-Type', mime)
-            ],
-            'data': path.open('rb').read()
-        }
-        return reply
+        if not mime:
+            mime = 'text/plain'
+
+        if mime in accept or '*/*' in accept or mime.split('/')[0] + '/*' in accept:
+            reply_dict = {
+                'type': 'reply',
+                'code': '200',
+                'code_desc': 'OK',
+                'headers': {
+                    'Content-Type': mime + '; charset=utf-8',
+                    'Last-Modified': httpdate(datetime.fromtimestamp(path.stat().st_mtime))
+                },
+                'data': path.open('rb').read()
+            }
+            return reply_dict
+        else:
+            return error_reply(415, desc='Unsupported Media Type')
     else:
         return error_reply(404, desc='Not found')
 
@@ -74,26 +114,47 @@ def reply(parsed):
     if parsed['method'] == 'GET':
         filepath = FILEDIR / pathlib.Path(parsed['path'])
         
-        return file_reply(filepath)
+        return file_reply(filepath, parsed['headers'].get('Accept'))
 
     return error_reply(501, 'Not Implemented')
 
 if __name__ == '__main__':
-    sock = socket.socket()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    sock.bind(('127.0.0.1', 9092))
+    sock.bind(('127.0.0.1', PORT))
+    # sock
+
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     sock.listen(1)
     while True:
         conn, addr = sock.accept()
-        print(f'Got connection from {addr}')
 
-        data = conn.recv(1024)
+        print(f'Got connection: {addr}')
 
-        parsed = parse_http(data)
-        rep = build_http_reply(reply(parsed))
-        conn.sendall(rep)
+        requests_done = 0
+        while True:
+            print('Reading...')
+            try:
+                data = conn.recv(10000)
+            except socket.timeout:
+                print('Timeout!')
+                break
 
+            print(f'======= Read {len(data):<15} ===============')
+            print(data.decode())
+            print(f'============================================')
+
+            if len(data) != 0:
+                parsed = parse_http(data)
+                rep = build_http_reply(reply(parsed))
+                requests_done += 1
+                conn.sendall(rep)
+                if parsed['headers'].get('Connection') == 'close' or ALWAYS_CLOSE:
+                    break
+            else:
+                break
+        print(f'Done {requests_done} requests per connection')
         conn.shutdown(socket.SHUT_RDWR)
         conn.close()
 
