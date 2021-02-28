@@ -1,15 +1,22 @@
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 import pathlib
 import sys
 import mimetypes
 from datetime import datetime
+from collections import defaultdict
 
 FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
 SERVER = 'Python Server'
 ALWAYS_CLOSE = False
 PORT = 9091
+TEMPL_EXT = '.pytemp'
+
+def my_format(text, query):
+    for k, v in query.items():
+        text = text.replace("{{" + k + "}}", v[0])
+    return text
 
 def httpdate(dt):
     """Return a string representation of a date according to RFC 1123
@@ -48,7 +55,7 @@ def parse_http(data):
         'type': 'question',
         'method': method,
         'path': parsed_path.path.strip('/'),
-        'query': parsed_path.query,
+        'query': parse_qs(parsed_path.query),
         'version': version,
         'headers': headers,
         'data': data
@@ -79,7 +86,7 @@ def error_reply(code, desc='Very bad...'):
         'data': desc.encode()
     }
 
-def file_reply(path, accept):
+def file_reply(path, accept, query={}):
     if path.exists():
         try:
             FILEDIR.joinpath(path).resolve().relative_to(FILEDIR.resolve())
@@ -90,10 +97,17 @@ def file_reply(path, accept):
             if not path.exists():
                 return error_reply(404, desc='Not found')
         mime = mimetypes.guess_type(path)[0]
+
         if not mime:
             mime = 'text/plain'
 
         if mime in accept or '*/*' in accept or mime.split('/')[0] + '/*' in accept:
+            if str(path).endswith(TEMPL_EXT):
+                mime = mimetypes.guess_type(str(path).removesuffix(TEMPL_EXT))[0]
+                data = my_format(path.open('r').read(), query).encode()
+            else:
+                data = path.open('rb').read()
+
             reply_dict = {
                 'type': 'reply',
                 'code': '200',
@@ -102,7 +116,7 @@ def file_reply(path, accept):
                     'Content-Type': mime + '; charset=utf-8',
                     'Last-Modified': httpdate(datetime.fromtimestamp(path.stat().st_mtime))
                 },
-                'data': path.open('rb').read()
+                'data': data
             }
             return reply_dict
         else:
@@ -114,7 +128,7 @@ def reply(parsed):
     if parsed['method'] == 'GET':
         filepath = FILEDIR / pathlib.Path(parsed['path'])
         
-        return file_reply(filepath, parsed['headers'].get('Accept'))
+        return file_reply(filepath, parsed['headers'].get('Accept'), parsed['query'])
 
     return error_reply(501, 'Not Implemented')
 
