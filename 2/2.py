@@ -5,12 +5,13 @@ import sys
 import mimetypes
 from datetime import datetime
 from collections import defaultdict
+import traceback
 
 FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
 SERVER = 'Python Server'
 ALWAYS_CLOSE = False
-PORT = 9091
+PORT = 9090
 TEMPL_EXT = '.pytemp'
 
 def my_format(text, query):
@@ -44,7 +45,7 @@ def parse_http(data):
 
     i = 1
 
-    while text[i] != '':
+    while i < len(text) and text[i] != '':
         key, value = text[i].split(': ')
         headers[key] = value
         i += 1
@@ -63,19 +64,25 @@ def parse_http(data):
 
 def build_http_reply(reply):
     text = []
+
     head = f'HTTP/1.1 {reply["code"]} {reply["code_desc"]}'
+
     print(f'Sending: {head}')
+
     text.append(head.encode())
-    headers = reply.get('headers', {})
-    headers |= {
+    headers = {
         'Date': httpdate(datetime.now()),
         'Server': SERVER,
-        'Content-Length': len(reply['data'])
-    }
+        'Content-Length': len(reply.get('data', '')),
+        'Content-Type': 'text/plain'
+    } | reply.get('headers', {})
+
     for k, v in headers.items():
         text.append(f'{k}: {v}'.encode())
+
     text.append(''.encode())
     text.append(reply.get('data', ''))
+
     return b'\n'.join(text)
 
 def error_reply(code, desc='Very bad...'):
@@ -86,49 +93,56 @@ def error_reply(code, desc='Very bad...'):
         'data': desc.encode()
     }
 
-def file_reply(path, accept, query={}):
+def file_reply(textpath, accept, query={}):
+    path = FILEDIR / textpath
     if path.exists():
+        # path traversal check
         try:
             FILEDIR.joinpath(path).resolve().relative_to(FILEDIR.resolve())
         except ValueError:
+            print('PATH TRAVERSAL detected:', path)
             return error_reply(404, desc='Not found')
+        # pass index file by default
         if path.is_dir():
             path = path / DEFAULT_FILE
             if not path.exists():
                 return error_reply(404, desc='Not found')
-        mime = mimetypes.guess_type(path)[0]
+        
+        mime = mimetypes.guess_type(str(path).removesuffix(TEMPL_EXT))[0]
+
+        print(f'Guessed {mime} from {path}')
 
         if not mime:
             mime = 'text/plain'
-
-        if mime in accept or '*/*' in accept or mime.split('/')[0] + '/*' in accept:
-            if str(path).endswith(TEMPL_EXT):
-                mime = mimetypes.guess_type(str(path).removesuffix(TEMPL_EXT))[0]
-                data = my_format(path.open('r').read(), query).encode()
-            else:
-                data = path.open('rb').read()
-
-            reply_dict = {
-                'type': 'reply',
-                'code': '200',
-                'code_desc': 'OK',
-                'headers': {
-                    'Content-Type': mime + '; charset=utf-8',
-                    'Last-Modified': httpdate(datetime.fromtimestamp(path.stat().st_mtime))
-                },
-                'data': data
-            }
-            return reply_dict
-        else:
+        
+        if not (mime in accept or '*/*' in accept or mime.split('/')[0] + '/*' in accept):
             return error_reply(415, desc='Unsupported Media Type')
+
+        if str(path).endswith(TEMPL_EXT):
+            data = my_format(path.open('r').read(), query).encode()
+        else:
+            data = path.open('rb').read()
+
+        return {
+            'type': 'reply',
+            'code': '200',
+            'code_desc': 'OK',
+            'headers': {
+                'Content-Type': mime + '; charset=utf-8',
+                'Last-Modified': httpdate(datetime.fromtimestamp(path.stat().st_mtime))
+            },
+            'data': data
+        }
     else:
         return error_reply(404, desc='Not found')
 
 def reply(parsed):
     if parsed['method'] == 'GET':
-        filepath = FILEDIR / pathlib.Path(parsed['path'])
-        
-        return file_reply(filepath, parsed['headers'].get('Accept'), parsed['query'])
+        return file_reply(parsed['path'], parsed['headers'].get('Accept', ''), parsed['query'])
+    elif parsed['method'] == 'HEAD':
+        reply_dict = file_reply(parsed['path'], parsed['headers'].get('Accept', ''), parsed['query'])
+        del reply_dict['data']
+        return reply
 
     return error_reply(501, 'Not Implemented')
 
@@ -136,41 +150,48 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     sock.bind(('127.0.0.1', PORT))
-    # sock
 
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     sock.listen(1)
     while True:
-        conn, addr = sock.accept()
+        try:
+            conn, addr = sock.accept()
 
-        print(f'Got connection: {addr}')
+            print(f'Got connection: {addr}')
 
-        requests_done = 0
-        while True:
-            print('Reading...')
-            try:
-                data = conn.recv(10000)
-            except socket.timeout:
-                print('Timeout!')
-                break
-
-            print(f'======= Read {len(data):<15} ===============')
-            print(data.decode())
-            print(f'============================================')
-
-            if len(data) != 0:
-                parsed = parse_http(data)
-                rep = build_http_reply(reply(parsed))
-                requests_done += 1
-                conn.sendall(rep)
-                if parsed['headers'].get('Connection') == 'close' or ALWAYS_CLOSE:
+            requests_done = 0
+            while True:
+                print('Reading...')
+                try:
+                    data = conn.recv(10000)
+                except socket.timeout:
+                    print('Timeout!')
                     break
-            else:
-                break
-        print(f'Done {requests_done} requests per connection')
-        conn.shutdown(socket.SHUT_RDWR)
-        conn.close()
+
+                print(f'======= Read {len(data):<15} ===============')
+                print(data.decode('utf-8', 'ignore'))
+                print(f'============================================')
+
+                if len(data) != 0:
+                    parsed = parse_http(data)
+                    rep = build_http_reply(reply(parsed))
+                    requests_done += 1
+                    conn.sendall(rep)
+                    if parsed['headers'].get('Connection', 'close') == 'close' or ALWAYS_CLOSE:
+                        break
+                else:
+                    break
+            print(f'Done {requests_done} requests per connection')
+        except Exception as e:
+            print('Got error', e)
+            traceback.print_exc()
+        except KeyboardInterrupt:
+            print('Stopped')
+            break
+        finally:
+            conn.shutdown(socket.SHUT_RDWR)
+            conn.close()
 
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
