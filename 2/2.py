@@ -1,3 +1,5 @@
+#!/usr/bin/env python3.9
+
 import socket
 from urllib.parse import urlparse, parse_qs
 import pathlib
@@ -11,8 +13,9 @@ FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
 SERVER = 'Python Server'
 ALWAYS_CLOSE = False
-PORT = 9090
+PORT = 9091
 TEMPL_EXT = '.pytemp'
+NEWLINE = '\n\r'
 
 def my_format(text, query):
     for k, v in query.items():
@@ -20,6 +23,7 @@ def my_format(text, query):
     return text
 
 def httpdate(dt):
+    # it is not GMT but NSK time actually but who cares
     """Return a string representation of a date according to RFC 1123
     (HTTP/1.1).
 
@@ -50,7 +54,7 @@ def parse_http(data):
         headers[key] = value
         i += 1
 
-    data = '\n'.join(text[i + 1:])
+    data = NEWLINE.join(text[i + 1:])
 
     return {
         'type': 'question',
@@ -62,10 +66,10 @@ def parse_http(data):
         'data': data
     }
 
-def build_http_reply(reply):
+def build_http_reply(reply_dict):
     text = []
-
-    head = f'HTTP/1.1 {reply["code"]} {reply["code_desc"]}'
+    print(reply_dict)
+    head = f'HTTP/1.1 {reply_dict["code"]} {reply_dict["code_desc"]}'
 
     print(f'Sending: {head}')
 
@@ -73,17 +77,17 @@ def build_http_reply(reply):
     headers = {
         'Date': httpdate(datetime.now()),
         'Server': SERVER,
-        'Content-Length': len(reply.get('data', '')),
+        'Content-Length': len(reply_dict.get('data', '')),
         'Content-Type': 'text/plain'
-    } | reply.get('headers', {})
+    } | reply_dict.get('headers', {})
 
     for k, v in headers.items():
         text.append(f'{k}: {v}'.encode())
 
-    text.append(''.encode())
-    text.append(reply.get('data', ''))
+    text.append(b'')
+    text.append(reply_dict.get('data', b''))
 
-    return b'\n'.join(text)
+    return NEWLINE.encode().join(text)
 
 def error_reply(code, desc='Very bad...'):
     return {
@@ -102,6 +106,7 @@ def file_reply(textpath, accept, query={}):
         except ValueError:
             print('PATH TRAVERSAL detected:', path)
             return error_reply(404, desc='Not found')
+        
         # pass index file by default
         if path.is_dir():
             path = path / DEFAULT_FILE
@@ -115,7 +120,9 @@ def file_reply(textpath, accept, query={}):
         if not mime:
             mime = 'text/plain'
         
-        if not (mime in accept or '*/*' in accept or mime.split('/')[0] + '/*' in accept):
+        if not (mime in accept \
+                or '*/*' in accept \
+                or mime.split('/')[0] + '/*' in accept):
             return error_reply(415, desc='Unsupported Media Type')
 
         if str(path).endswith(TEMPL_EXT):
@@ -142,7 +149,7 @@ def reply(parsed):
     elif parsed['method'] == 'HEAD':
         reply_dict = file_reply(parsed['path'], parsed['headers'].get('Accept', ''), parsed['query'])
         del reply_dict['data']
-        return reply
+        return reply_dict
 
     return error_reply(501, 'Not Implemented')
 
@@ -155,6 +162,7 @@ if __name__ == '__main__':
 
     sock.listen(1)
     while True:
+        conn = None
         try:
             conn, addr = sock.accept()
 
@@ -190,8 +198,9 @@ if __name__ == '__main__':
             print('Stopped')
             break
         finally:
-            conn.shutdown(socket.SHUT_RDWR)
-            conn.close()
+            if conn:
+                conn.shutdown(socket.SHUT_RDWR)
+                conn.close()
 
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
