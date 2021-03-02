@@ -8,6 +8,7 @@ import mimetypes
 from datetime import datetime
 from collections import defaultdict
 import traceback
+from utils import *
 
 FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
@@ -21,20 +22,6 @@ def my_format(text, query):
     for k, v in query.items():
         text = text.replace("{{" + k + "}}", v[0])
     return text
-
-def httpdate(dt):
-    # it is not GMT but NSK time actually but who cares
-    """Return a string representation of a date according to RFC 1123
-    (HTTP/1.1).
-
-    The supplied date must be in UTC.
-
-    """
-    weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
-    month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-             "Oct", "Nov", "Dec"][dt.month - 1]
-    return "%s, %02d %s %04d %02d:%02d:%02d GMT" % (weekday, dt.day, month,
-        dt.year, dt.hour, dt.minute, dt.second)
 
 def parse_http(data):
     text = data.decode('utf-8', 'ignore').splitlines()
@@ -74,12 +61,12 @@ def build_http_reply(reply_dict):
     print(f'Sending: {head}')
 
     text.append(head.encode())
-    headers = {
+    headers = { **{
         'Date': httpdate(datetime.now()),
         'Server': SERVER,
         'Content-Length': len(reply_dict.get('data', '')),
         'Content-Type': 'text/plain'
-    } | reply_dict.get('headers', {})
+    }, **reply_dict.get('headers', {})}
 
     for k, v in headers.items():
         text.append(f'{k}: {v}'.encode())
@@ -113,7 +100,7 @@ def file_reply(textpath, accept, query={}):
             if not path.exists():
                 return error_reply(404, desc='Not found')
         
-        mime = mimetypes.guess_type(str(path).removesuffix(TEMPL_EXT))[0]
+        mime = mimetypes.guess_type(removesuffix(str(path), TEMPL_EXT))[0]
 
         print(f'Guessed {mime} from {path}')
 
