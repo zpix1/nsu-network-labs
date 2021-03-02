@@ -12,7 +12,7 @@ import traceback
 FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
 SERVER = 'Python Server'
-ALWAYS_CLOSE = True
+ALWAYS_CLOSE = False
 PORT = 9091
 TEMPL_EXT = '.pytemp'
 NEWLINE = '\r\n'
