@@ -12,10 +12,10 @@ import traceback
 FILEDIR = pathlib.Path('.', '2files')
 DEFAULT_FILE = 'index.html'
 SERVER = 'Python Server'
-ALWAYS_CLOSE = False
+ALWAYS_CLOSE = True
 PORT = 9091
 TEMPL_EXT = '.pytemp'
-NEWLINE = '\n\r'
+NEWLINE = '\r\n'
 
 def my_format(text, query):
     for k, v in query.items():
@@ -68,7 +68,7 @@ def parse_http(data):
 
 def build_http_reply(reply_dict):
     text = []
-    print(reply_dict)
+
     head = f'HTTP/1.1 {reply_dict["code"]} {reply_dict["code_desc"]}'
 
     print(f'Sending: {head}')
