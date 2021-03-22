@@ -1,25 +1,41 @@
+import asyncio
+import logging
+from threading import Thread
 from time import sleep
 
 from tcpoverudp.receiver import Receiver
 from tcpoverudp.sender import Sender
 from tcpoverudp.socket import Socket
+from tcpoverudp.timer import Timer
 
-def main():
-    socket = Socket()
 
-    receiver = Receiver(socket)
-    sender = Sender(socket)
-
-    receiver.listen()
-    sender.listen()
-
-    data = [
+def spamer(sender: Sender):
+    for d in [
         b'kek',
         b'mem'
-    ]
-
-    for d in data:
+    ]:
         sender.send(d)
         sleep(1)
 
-main()
+
+def main():
+    logging.basicConfig(level=logging.DEBUG)
+
+    socket_r = Socket()
+    socket_l = Socket()
+
+    socket_r.set_out_socket(socket_l)
+    socket_l.set_out_socket(socket_r)
+
+    receiver = Receiver(socket_r)
+    sender = Sender(socket_l)
+    sender.listen()
+
+    Thread(target=spamer, args=[sender]).start()
+
+    while True:
+        print(receiver.listen())
+
+
+if __name__ == "__main__":
+    main()

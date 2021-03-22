@@ -13,6 +13,8 @@ class Receiver:
             packet = self.socket.listen()
             if not packet.is_corrupted() and packet.seqnum == self.expectedseqnum:
                 print('Received: ', packet)
-            self.sendpkt = Packet(self.expectedseqnum, b'', ack=True)
-            self.socket.send(self.sendpkt)
-            self.expectedseqnum += 1
+                self.sendpkt = Packet(self.expectedseqnum, b'', ack=True)
+                self.socket.send(self.sendpkt)
+                self.expectedseqnum += 1
+            else:
+                self.socket.send(self.sendpkt)
