@@ -14,7 +14,7 @@ class Socket:
         self.out_socket = socket
 
     def send(self, packet: Packet) -> None:
-        if random() < 0.1:
+        if random() < 0.5:
             logging.info(f'lost {packet}')
             return
         logging.info(f'sent {packet}')
