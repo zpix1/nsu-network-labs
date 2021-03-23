@@ -22,17 +22,17 @@ class Timer:
                 if self._t == STEP:
                     self._stop = True
                     self._t = 0
-                    logging.info('timeout')
+                    logging.debug('timeout')
                     self.timeout()
             sleep(TIMEOUT / STEP)
 
     def start_timer(self) -> None:
-        logging.info('timer started')
+        logging.debug('timer started')
         self._t = 0
         self._stop = False
 
     def stop_timer(self) -> None:
-        logging.info('timer stopped')
+        logging.debug('timer stopped')
         self._stop = True
         self._t = 0
 

@@ -6,6 +6,7 @@ from tcpoverudp.packet import Packet
 
 
 class Socket:
+
     def __init__(self):
         self.queue = Queue()
         self.out_socket = None
@@ -14,13 +15,13 @@ class Socket:
         self.out_socket = socket
 
     def send(self, packet: Packet) -> None:
-        if random() < 0.5:
-            logging.info(f'lost {packet}')
+        if random() < 0.4:
+            logging.error(f'lost {packet}')
             return
-        logging.info(f'sent {packet}')
+        logging.debug(f'sent {packet}')
         self.out_socket.queue.put(packet)
 
     def listen(self) -> Packet:
         packet = self.queue.get()
-        logging.info(f'received {packet}')
+        logging.debug(f'received {packet}')
         return packet

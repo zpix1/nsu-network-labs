@@ -1,3 +1,5 @@
+import logging
+
 from tcpoverudp.packet import Packet
 from tcpoverudp.socket import Socket
 
@@ -12,7 +14,7 @@ class Receiver:
         while True:
             packet = self.socket.listen()
             if not packet.is_corrupted() and packet.seqnum == self.expectedseqnum:
-                print('Received: ', packet)
+                logging.info(f'Received: {packet}')
                 self.sendpkt = Packet(self.expectedseqnum, b'', ack=True)
                 self.socket.send(self.sendpkt)
                 self.expectedseqnum += 1

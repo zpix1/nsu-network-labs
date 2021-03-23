@@ -24,7 +24,7 @@ class Sender(Timer):
             self.socket.send(self.sendpkt[self.nextseqnum])
             if self.base == self.nextseqnum:
                 self.start_timer()
-                self.nextseqnum += 1
+            self.nextseqnum += 1
             self.send_lock.release()
         else:
             return False
@@ -34,7 +34,7 @@ class Sender(Timer):
         self.start_timer()
         self.send_lock.acquire()
         for i in range(self.base, self.nextseqnum):
-            logging.info(f'base={self.base}; nextseqnum={self.nextseqnum}')
+            logging.debug(f'base={self.base}; nextseqnum={self.nextseqnum}')
             self.socket.send(self.sendpkt[i])
         self.send_lock.release()
 
@@ -47,8 +47,8 @@ class Sender(Timer):
             packet = self.socket.listen()
             if not packet.is_corrupted():
                 self.base = packet.seqnum + 1
+                logging.debug(f'got ack {packet.seqnum}, set base to {self.base} (nextseqnum={self.nextseqnum})')
                 if self.base == self.nextseqnum:
                     self.stop_timer()
-                    print(f'Accepted: {self.sendpkt[self.nextseqnum - 1]}')
                 else:
                     self.start_timer()
