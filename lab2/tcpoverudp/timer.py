@@ -4,13 +4,14 @@ from time import sleep
 
 from tcpoverudp.config import TIMEOUT
 
-STEP = 1000
+STEP = 100
+
 
 class Timer:
     def __init__(self, timeout: callable):
         self._task = None
         self._stop = False
-        self._thread = Thread(target=self._timer, name='Timer Thread')
+        self._thread = Thread(target=self._timer, name='Timer Thread', daemon=True)
         self._t = 0
         self._timeout = timeout
 
@@ -33,6 +34,6 @@ class Timer:
         self._stop = False
 
     def stop_timer(self) -> None:
-        logging.debug(f'timer stopped {self._t} {self._thread}')
+        logging.debug(f'timer stopped')
         self._stop = True
         self._t = 0

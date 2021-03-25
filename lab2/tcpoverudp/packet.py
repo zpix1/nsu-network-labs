@@ -9,7 +9,7 @@ class Packet:
     ack: bool
     acknum: int
 
-    def __init__(self, data: bytes, seqnum: int = None, ack: bool = False, acknum: int = None):
+    def __init__(self, data: bytes = b'', seqnum: int = None, ack: bool = False, acknum: int = None):
         self.seqnum = seqnum
         self.data = data
         self.ack = ack

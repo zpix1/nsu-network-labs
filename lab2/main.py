@@ -4,24 +4,27 @@ import sys
 from threading import Thread
 from time import sleep
 
-from tcpoverudp.receiver import Receiver
-from tcpoverudp.sender import Sender
+from tcpoverudp.duplex import Duplex
 from tcpoverudp.socket import Socket
-from tcpoverudp.timer import Timer
 
 
-def spamer(sender: Sender):
+def spamer(sender: Duplex):
     for d in [
         b'kek',
         b'mem'
     ]:
-        logging.info(f'sent data "{d.decode()}"')
+        logging.info(f'sent data {d}')
         sender.send(d)
         sleep(1)
 
 
+def listen(duplex: Duplex, name: str):
+    while True:
+        logging.info(f'Duplex {name} got data {duplex.listen()}')
+
+
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     socket_r = Socket()
     socket_l = Socket()
@@ -29,14 +32,13 @@ def main():
     socket_r.set_out_socket(socket_l)
     socket_l.set_out_socket(socket_r)
 
-    receiver = Receiver(socket_r)
-    sender = Sender(socket_l)
-    sender.listen()
+    receiver = Duplex(socket_r)
+    sender = Duplex(socket_l)
 
     Thread(target=spamer, args=[sender]).start()
-
-    while True:
-        logging.info(f'got data "{receiver.listen().decode()}"')
+    Thread(target=spamer, args=[receiver]).start()
+    Thread(target=listen, args=[sender, "sender"]).start()
+    Thread(target=listen, args=[receiver, "receiver"]).start()
 
 
 if __name__ == "__main__":

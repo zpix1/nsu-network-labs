@@ -1,4 +1,5 @@
 import logging
+from typing import List, Optional
 
 from tcpoverudp.packet import Packet
 from tcpoverudp.socket import Socket
@@ -6,12 +7,13 @@ from tcpoverudp.timer import Timer
 from tcpoverudp.config import *
 from threading import Lock
 
+
 class Duplex:
     def __init__(self, socket: Socket):
         super().__init__()
         self.socket = socket
         self.receiver_expectedseqnum = 1
-        self.receiver_sendpkt = Packet(b'', acknum=0, ack=True)
+        self.receiver_sendpkt = Packet(b'', ack=True, acknum=0)
         self.base = 1
         self.sender_nextseqnum = 1
         self.sender_sendpkt: List[Optional[Packet]] = [None] * N
@@ -24,7 +26,7 @@ class Duplex:
             if packet.ack:
                 if not packet.is_corrupted():
                     self.base = packet.acknum + 1
-                    logging.debug(f'got ack {packet.acknum}, set base to {self.base} (sender_nextseqnum={self.sender_nextseqnum})')
+                    logging.debug(f'got ack {packet.acknum}')
                     if self.base == self.sender_nextseqnum:
                         self.timer.stop_timer()
                     else:
