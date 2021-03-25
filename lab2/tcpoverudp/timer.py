@@ -9,31 +9,31 @@ STEP = 100
 
 class Timer:
     def __init__(self, timeout: callable):
-        self._task = None
-        self._stop = False
-        self._thread = Thread(target=self._timer, name='Timer Thread', daemon=True)
-        self._t = 0
-        self._timeout = timeout
+        self.task = None
+        self.stop_flag = False
+        self.thread = Thread(target=self._timer, name='Timer Thread', daemon=True)
+        self.t_idx = 0
+        self.timeout_handler = timeout
 
     def _timer(self):
         while True:
-            if not self._stop:
-                self._t += 1
-                if self._t == STEP:
-                    self._stop = True
-                    self._t = 0
+            if not self.stop_flag:
+                self.t_idx += 1
+                if self.t_idx == STEP:
+                    self.stop_flag = True
+                    self.t_idx = 0
                     logging.debug('timeout')
-                    self._timeout()
+                    self.timeout_handler()
             sleep(TIMEOUT / STEP)
 
     def start_timer(self) -> None:
         logging.debug('timer started')
-        if not self._thread.is_alive():
-            self._thread.start()
-        self._t = 0
-        self._stop = False
+        if not self.thread.is_alive():
+            self.thread.start()
+        self.t_idx = 0
+        self.stop_flag = False
 
     def stop_timer(self) -> None:
         logging.debug(f'timer stopped')
-        self._stop = True
-        self._t = 0
+        self.stop_flag = True
+        self.t_idx = 0

@@ -1,6 +1,4 @@
-import asyncio
 import logging
-import sys
 from threading import Thread
 from time import sleep
 
@@ -8,7 +6,7 @@ from tcpoverudp.duplex import Duplex
 from tcpoverudp.socket import Socket
 
 
-def spamer(sender: Duplex):
+def spam(sender: Duplex):
     for d in [
         b'kek',
         b'mem'
@@ -35,8 +33,8 @@ def main():
     receiver = Duplex(socket_r)
     sender = Duplex(socket_l)
 
-    Thread(target=spamer, args=[sender]).start()
-    Thread(target=spamer, args=[receiver]).start()
+    Thread(target=spam, args=[sender]).start()
+    Thread(target=spam, args=[receiver]).start()
     Thread(target=listen, args=[sender, "sender"]).start()
     Thread(target=listen, args=[receiver, "receiver"]).start()
 
