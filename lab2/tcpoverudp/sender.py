@@ -8,7 +8,7 @@ from tcpoverudp.timer import Timer
 from tcpoverudp.socket import Socket
 
 
-class Sender(Timer):
+class Sender:
     def __init__(self, socket: Socket):
         super().__init__()
         self.base = 1
@@ -16,6 +16,7 @@ class Sender(Timer):
         self.sendpkt: List[Optional[Packet]] = [None] * N
         self.socket = socket
         self.send_lock = Lock()
+        self.timer = Timer(self.timeout)
 
     def send(self, data: bytes) -> bool:
         if self.nextseqnum < self.base + N:
@@ -23,7 +24,7 @@ class Sender(Timer):
             self.sendpkt[self.nextseqnum] = Packet(data, seqnum=self.nextseqnum)
             self.socket.send(self.sendpkt[self.nextseqnum])
             if self.base == self.nextseqnum:
-                self.start_timer()
+                self.timer.start_timer()
             self.nextseqnum += 1
             self.send_lock.release()
         else:
@@ -31,7 +32,7 @@ class Sender(Timer):
         return True
 
     def timeout(self) -> None:
-        self.start_timer()
+        self.timer.start_timer()
         self.send_lock.acquire()
         for i in range(self.base, self.nextseqnum):
             logging.debug(f'base={self.base}; nextseqnum={self.nextseqnum}')
@@ -49,6 +50,6 @@ class Sender(Timer):
                 self.base = packet.acknum + 1
                 logging.debug(f'got ack {packet.seqnum}, set base to {self.base} (nextseqnum={self.nextseqnum})')
                 if self.base == self.nextseqnum:
-                    self.stop_timer()
+                    self.timer.stop_timer()
                 else:
-                    self.start_timer()
+                    self.timer.start_timer()
