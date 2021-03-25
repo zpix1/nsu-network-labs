@@ -20,7 +20,7 @@ class Sender(Timer):
     def send(self, data: bytes) -> bool:
         if self.nextseqnum < self.base + N:
             self.send_lock.acquire()
-            self.sendpkt[self.nextseqnum] = Packet(self.nextseqnum, data)
+            self.sendpkt[self.nextseqnum] = Packet(data, seqnum=self.nextseqnum)
             self.socket.send(self.sendpkt[self.nextseqnum])
             if self.base == self.nextseqnum:
                 self.start_timer()
@@ -45,8 +45,8 @@ class Sender(Timer):
     def _listen(self) -> None:
         while True:
             packet = self.socket.listen()
-            if not packet.is_corrupted():
-                self.base = packet.seqnum + 1
+            if not packet.is_corrupted() and packet.ack:
+                self.base = packet.acknum + 1
                 logging.debug(f'got ack {packet.seqnum}, set base to {self.base} (nextseqnum={self.nextseqnum})')
                 if self.base == self.nextseqnum:
                     self.stop_timer()

@@ -6,7 +6,6 @@ from tcpoverudp.config import TIMEOUT
 
 STEP = 100
 
-
 class Timer:
     def __init__(self):
         self._task = None

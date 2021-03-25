@@ -8,14 +8,13 @@ class Receiver:
     def __init__(self, socket: Socket):
         self.socket = socket
         self.expectedseqnum = 1
-        self.sendpkt = Packet(0, b'', ack=True)
+        self.sendpkt = Packet(b'', acknum=0, ack=True)
 
     def listen(self) -> bytes:
         while True:
             packet = self.socket.listen()
             if not packet.is_corrupted() and packet.seqnum == self.expectedseqnum:
-                logging.info(f'Received: {packet}')
-                self.sendpkt = Packet(self.expectedseqnum, b'', ack=True)
+                self.sendpkt = Packet(b'', acknum=self.expectedseqnum, ack=True)
                 self.socket.send(self.sendpkt)
                 self.expectedseqnum += 1
                 return packet.data
