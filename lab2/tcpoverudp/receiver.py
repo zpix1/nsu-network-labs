@@ -10,7 +10,7 @@ class Receiver:
         self.expectedseqnum = 1
         self.sendpkt = Packet(0, b'', ack=True)
 
-    def listen(self) -> None:
+    def listen(self) -> bytes:
         while True:
             packet = self.socket.listen()
             if not packet.is_corrupted() and packet.seqnum == self.expectedseqnum:
@@ -18,5 +18,6 @@ class Receiver:
                 self.sendpkt = Packet(self.expectedseqnum, b'', ack=True)
                 self.socket.send(self.sendpkt)
                 self.expectedseqnum += 1
+                return packet.data
             else:
                 self.socket.send(self.sendpkt)

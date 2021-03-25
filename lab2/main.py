@@ -15,6 +15,7 @@ def spamer(sender: Sender):
         b'kek',
         b'mem'
     ]:
+        logging.info(f'sent data "{d.decode()}"')
         sender.send(d)
         sleep(1)
 
@@ -35,7 +36,7 @@ def main():
     Thread(target=spamer, args=[sender]).start()
 
     while True:
-        print(receiver.listen())
+        logging.info(f'got data "{receiver.listen().decode()}"')
 
 
 if __name__ == "__main__":
