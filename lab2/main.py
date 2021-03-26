@@ -22,7 +22,7 @@ def listen(duplex: Duplex, name: str):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     socket_r = Socket()
     socket_l = Socket()
