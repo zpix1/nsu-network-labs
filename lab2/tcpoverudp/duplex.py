@@ -19,7 +19,7 @@ class Duplex:
         self.send_lock = Lock()
         self.timer = Timer(self.timeout)
 
-    def listen(self) -> bytes:
+    def listen(self) -> Packet:
         while True:
             packet = self.socket.listen()
 
@@ -40,16 +40,15 @@ class Duplex:
                     self.receiver_send_packet = Packet(b'', ack=True, acknum=self.receiver_expected_seq_num)
                     self.socket.send(self.receiver_send_packet)
                     self.receiver_expected_seq_num += 1
-                    return packet.data
+                    return packet
                 else:
                     self.socket.send(self.receiver_send_packet)
 
-
-    def send(self, data: bytes) -> bool:
+    def send(self, orig_packet: Packet) -> bool:
         if self.sender_next_seq_num < self.base + N:
             self.send_lock.acquire()
-
-            self.sender_send_packets[self.sender_next_seq_num] = Packet(data, seqnum=self.sender_next_seq_num)
+            orig_packet.seqnum = self.sender_next_seq_num
+            self.sender_send_packets[self.sender_next_seq_num] = orig_packet
             self.socket.send(self.sender_send_packets[self.sender_next_seq_num])
             if not self.timer.is_running():
                 self.timer.start_timer()

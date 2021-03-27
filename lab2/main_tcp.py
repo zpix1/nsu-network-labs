@@ -5,6 +5,7 @@ from time import sleep
 from tcpoverudp.duplex import Duplex
 from tcpoverudp.packet import Packet
 from tcpoverudp.socket import Socket
+from tcpoverudp.tcp import TCP
 
 
 def spam(sender: Duplex):
@@ -19,11 +20,11 @@ def spam(sender: Duplex):
 
 def listen(duplex: Duplex, name: str):
     while True:
-        logging.info(f'Duplex {name} got data {duplex.listen().data}')
+        logging.info(f'TCP {name} got data {duplex.listen().data}')
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     socket_r = Socket()
     socket_l = Socket()
@@ -31,13 +32,14 @@ def main():
     socket_r.set_out_socket(socket_l)
     socket_l.set_out_socket(socket_r)
 
-    receiver = Duplex(socket_r)
-    sender = Duplex(socket_l)
+    receiver = TCP(socket_r)
+    sender = TCP(socket_l)
 
-    Thread(target=spam, args=[sender]).start()
-    Thread(target=spam, args=[receiver]).start()
     Thread(target=listen, args=[sender, "sender"]).start()
     Thread(target=listen, args=[receiver, "receiver"]).start()
+    sleep(1)
+
+    Thread(target=spam, args=[sender]).start()
 
 
 if __name__ == "__main__":
