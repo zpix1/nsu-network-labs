@@ -10,7 +10,6 @@ from threading import Lock
 
 class Duplex:
     def __init__(self, socket: Socket):
-        super().__init__()
         self.socket = socket
         self.receiver_expected_seq_num = 1
         self.receiver_send_packet = Packet(b'', ack=True, acknum=0)
@@ -23,16 +22,21 @@ class Duplex:
     def listen(self) -> bytes:
         while True:
             packet = self.socket.listen()
+
             if packet.ack:
-                if not packet.is_corrupted():
-                    self.base = packet.acknum + 1
-                    logging.debug(f'got ack {packet.acknum}')
-                    if self.base == self.sender_next_seq_num:
-                        self.timer.stop_timer()
-                    else:
+                for p in self.sender_send_packets:
+                    if p:
+                        if p.seqnum > packet.acknum:
+                            break
+                        p.is_acked = True
+                        logging.debug(f'Got ack ({packet}) for {p}')
+                if packet.acknum > self.base:
+                    self.base = packet.acknum
+                    if any(map(lambda p: p and p.is_acked, self.sender_send_packets)):
                         self.timer.start_timer()
             else:
-                if not packet.is_corrupted() and packet.seqnum == self.receiver_expected_seq_num:
+                logging.debug(f'received packet {packet}, {self.receiver_expected_seq_num}')
+                if packet.seqnum == self.receiver_expected_seq_num:
                     self.receiver_send_packet = Packet(b'', ack=True, acknum=self.receiver_expected_seq_num)
                     self.socket.send(self.receiver_send_packet)
                     self.receiver_expected_seq_num += 1
@@ -40,23 +44,30 @@ class Duplex:
                 else:
                     self.socket.send(self.receiver_send_packet)
 
+
     def send(self, data: bytes) -> bool:
         if self.sender_next_seq_num < self.base + N:
             self.send_lock.acquire()
+
             self.sender_send_packets[self.sender_next_seq_num] = Packet(data, seqnum=self.sender_next_seq_num)
             self.socket.send(self.sender_send_packets[self.sender_next_seq_num])
-            if self.base == self.sender_next_seq_num:
+            if not self.timer.is_running():
                 self.timer.start_timer()
             self.sender_next_seq_num += 1
+
             self.send_lock.release()
         else:
             return False
         return True
 
     def timeout(self) -> None:
-        self.timer.start_timer()
         self.send_lock.acquire()
-        for i in range(self.base, self.sender_next_seq_num):
-            logging.debug(f'base={self.base}; sender_nextseqnum={self.sender_next_seq_num}')
-            self.socket.send(self.sender_send_packets[i])
+
+        for packet in self.sender_send_packets:
+            if packet and not packet.is_acked:
+                logging.debug(f'Resending {packet}')
+                self.socket.send(packet)
+                self.timer.start_timer()
+                break
+
         self.send_lock.release()

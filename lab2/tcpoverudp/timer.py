@@ -10,7 +10,7 @@ STEP = 100
 class Timer:
     def __init__(self, timeout: callable):
         self.task = None
-        self.stop_flag = False
+        self.stop_flag = True
         self.thread = Thread(target=self._timer, name='Timer Thread', daemon=True)
         self.t_idx = 0
         self.timeout_handler = timeout
@@ -20,7 +20,7 @@ class Timer:
 
     def _timer(self):
         while True:
-            if not self.stop_flag:
+            if self.is_running():
                 self.t_idx += 1
                 if self.t_idx == STEP:
                     self.stop_flag = True
