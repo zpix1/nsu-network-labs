@@ -15,6 +15,9 @@ class Timer:
         self.t_idx = 0
         self.timeout_handler = timeout
 
+    def is_running(self):
+        return not self.stop_flag
+
     def _timer(self):
         while True:
             if not self.stop_flag:
