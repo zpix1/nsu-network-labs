@@ -1,4 +1,5 @@
 import logging
+from threading import Lock
 
 from tcpoverudp.duplex import Duplex
 from tcpoverudp.packet import Packet
@@ -14,17 +15,14 @@ class TCPState(Enum):
 
 class TCP:
     def __init__(self, socket: Socket):
-        self.socket = socket
         self.state = TCPState.CLOSED
         self.duplex = Duplex(socket)
-
-        self.socket.send(Packet(b'', syn=True))
-        self.state = TCPState.SYN_SENT
+        self.connection_established = Lock()
+        self.connection_established.acquire()
 
     def listen(self) -> bytes:
         while True:
             packet = self.duplex.listen()
-            logging.critical(f'{packet}')
             if packet.syn:
                 if self.state == TCPState.CLOSED:
                     self.duplex.send(Packet(b'', syn=True))
@@ -32,7 +30,9 @@ class TCP:
                     logging.info('set to SYN_SENT')
                 elif self.state == TCPState.SYN_SENT:
                     self.state = TCPState.ESTABLISHED
+                    self.duplex.send(Packet(b'', syn=True))
                     logging.info('set to ESTABLISHED')
+                    self.connection_established.release()
             else:
                 return packet.data
 
@@ -40,3 +40,10 @@ class TCP:
         if self.state == TCPState.ESTABLISHED:
             return self.duplex.send(Packet(data))
         return False
+
+    def establish(self):
+        self.duplex.send(Packet(b'', syn=True))
+        self.state = TCPState.SYN_SENT
+        self.connection_established.acquire()
+        self.connection_established.release()
+

@@ -10,8 +10,13 @@ from tcpoverudp.tcp import TCP
 
 def spam(sender: Duplex):
     for d in [
-        b'kek',
-        b'mem'
+        b'Line numero 1',
+        b'Line numero 2',
+        b'Line numero 3',
+        b'Line numero 4',
+        b'Line numero 5',
+        b'Line numero 6',
+        b'Line numero 7',
     ]:
         logging.info(f'sent data {d}')
         sender.send(Packet(d))
@@ -24,7 +29,7 @@ def listen(duplex: Duplex, name: str):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     socket_r = Socket()
     socket_l = Socket()
@@ -37,6 +42,8 @@ def main():
 
     Thread(target=listen, args=[sender, "sender"]).start()
     Thread(target=listen, args=[receiver, "receiver"]).start()
+
+    sender.establish()
     sleep(1)
 
     Thread(target=spam, args=[sender]).start()

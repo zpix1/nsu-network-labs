@@ -5,6 +5,8 @@ from random import random
 from tcpoverudp.packet import Packet
 
 
+LOSE_RATE = 0.4
+
 class Socket:
 
     def __init__(self):
@@ -15,9 +17,9 @@ class Socket:
         self.out_socket = socket
 
     def send(self, packet: Packet) -> None:
-        # if random() < 0.4:
-        #     logging.error(f'lost {packet}')
-        #     return
+        if random() < LOSE_RATE:
+            logging.error(f'lost {packet}')
+            return
         logging.debug(f'sent {packet}')
         self.out_socket.queue.put(packet)
 
