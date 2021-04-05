@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 
 from tcpoverudp.packet import Packet
-from tcpoverudp.socket import Socket
+from tcpoverudp.msocket import Socket
 from tcpoverudp.timer import Timer
 from tcpoverudp.config import *
 from threading import Lock

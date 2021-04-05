@@ -3,7 +3,7 @@ from threading import Lock
 
 from tcpoverudp.duplex import Duplex
 from tcpoverudp.packet import Packet
-from tcpoverudp.socket import Socket
+from tcpoverudp.msocket import Socket
 from enum import Enum
 
 

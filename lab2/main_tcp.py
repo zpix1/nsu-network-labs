@@ -4,7 +4,7 @@ from time import sleep
 
 from tcpoverudp.duplex import Duplex
 from tcpoverudp.packet import Packet
-from tcpoverudp.socket import Socket
+from tcpoverudp.msocket import Socket
 from tcpoverudp.tcp import TCP
 
 
@@ -31,11 +31,11 @@ def listen(duplex: Duplex, name: str):
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    socket_r = Socket()
-    socket_l = Socket()
+    socket_r = Socket(port1=8888, port2=9999)
+    socket_l = Socket(port1=9999, port2=8888)
 
-    socket_r.set_out_socket(socket_l)
-    socket_l.set_out_socket(socket_r)
+    # socket_r.set_out_socket(socket_l)
+    # socket_l.set_out_socket(socket_r)
 
     receiver = TCP(socket_r)
     sender = TCP(socket_l)

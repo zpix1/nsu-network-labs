@@ -4,7 +4,7 @@ from time import sleep
 
 from tcpoverudp.duplex import Duplex
 from tcpoverudp.packet import Packet
-from tcpoverudp.socket import Socket
+from tcpoverudp.msocket import Socket
 
 
 def spam(sender: Duplex):
